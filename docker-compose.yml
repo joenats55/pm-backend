@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: takeco-pm-postgres
+    environment:
+      POSTGRES_DB: takeco_pm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Takecowolf
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - takeco-network
+
+  # pgAdmin 4 for PostgreSQL management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: takeco-pm-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@takeco.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - takeco-network
+
+  # Redis for caching and queues
+  redis:
+    image: redis:7-alpine
+    container_name: takeco-pm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - takeco-network
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  redis_data:
+
+networks:
+  takeco-network:
+    driver: bridge

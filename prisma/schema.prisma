@@ -1,0 +1,554 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id           Int       @id @default(autoincrement())
+  name         String    @unique
+  tel          String?
+  email        String?
+  detail       String?
+  regisNumber  String?   @map("regis_number")
+  regisDate    DateTime? @map("regis_date")
+  regisCapital BigInt?   @map("regis_capital")
+  address      String?
+  addressId    Int?      @map("address_id")
+  districtsId  String?   @map("districts_id")
+  zipCode      Int?      @map("zip_code")
+  amphuresId   Int?      @map("amphures_id")
+  provincesId  Int?      @map("provinces_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  // Relationships
+  users    User[]
+  machines Machine[]
+
+  @@map("companies")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // เช่น 'Technician', 'Supervisor', 'Admin'
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  fullName     String   @map("full_name")
+  username     String   @unique
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  phoneNumber  String?  @map("phone_number")
+  roleId       Int      @map("role_id")
+  companyId    Int?     @map("company_id")
+  isActive     Boolean  @default(true) @map("is_active")
+  lineUserId   String?  @map("line_user_id") // สำหรับผูก LINE OA (optional)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  role                  Role                   @relation(fields: [roleId], references: [id])
+  company               Company?               @relation(fields: [companyId], references: [id])
+  inventoryTransactions InventoryTransaction[]
+
+  // PM Template relationships
+  createdPMTemplates    PMTemplate[]
+  pmScheduleAssignments PMScheduleAssignment[] @relation("PMScheduleAssignments")
+  assignedBySchedules   PMScheduleAssignment[] @relation("AssignedByUser")
+  completedPMSchedules  PMSchedule[]           @relation("CompletedBy")
+  approvedPMSchedules   PMSchedule[]           @relation("ApprovedBy")
+  checkedPMResults      PMResult[]             @relation("CheckedBy")
+  approvedPMResults     PMResult[]             @relation("ApprovedBy")
+
+  // Repair Work relationships
+  reportedRepairWorks       RepairWork[]     @relation("ReportedBy")
+  assignedRepairWorks       RepairWork[]     @relation("AssignedTo")
+  approvedRepairWorks       RepairWork[]     @relation("ApprovedByRepair")
+  completedRepairWorks      RepairWork[]     @relation("RepairCompletedBy")
+  assignedRepairItems       RepairWorkItem[] @relation("RepairItemAssignedTo")
+  completedRepairItems      RepairWorkItem[] @relation("RepairItemCompletedBy")
+  takenRepairPhotos         RepairWorkPhoto[] @relation("RepairPhotoTakenBy")
+  usedRepairParts           RepairWorkPart[] @relation("RepairPartUsedBy")
+  // New multi-technician repair work assignments
+  repairWorkAssignments     RepairWorkAssignment[]
+  repairWorkAssignedBy      RepairWorkAssignment[] @relation("RepairWorkAssignedBy")
+
+  @@map("users")
+}
+
+model Machine {
+  id               String    @id @default(uuid())
+  machineCode      String    @unique @map("machine_code") // รหัสเครื่องจักร เช่น MCH-001
+  name             String // ชื่อเครื่องจักร
+  category         String // เช่น: ปั๊ม, มอเตอร์, เครื่องกลึง
+  model            String? // รุ่นเครื่อง
+  serialNumber     String?   @map("serial_number") // หมายเลขประจำเครื่อง
+  installationDate DateTime? @map("installation_date") // วันที่ติดตั้ง
+  location         String? // ตำแหน่งในโรงงาน เช่น Line A
+  status           MachineStatus @default(ACTIVE) // ใช้งาน, รอซ่อม, ไม่ใช้งาน
+  qrCodeUrl        String?   @map("qr_code_url") // URL หรือ base64 QR สำหรับแสดงในหน้าเครื่อง
+  companyId        Int       @map("company_id") // เชื่อมกับบริษัทลูกค้า
+  imageUrl         String?   @map("image_url") // รูปภาพประกอบ (optional)
+  description      String? // คำอธิบายหรือรายละเอียดเพิ่มเติม
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  company     Company           @relation(fields: [companyId], references: [id])
+  documents   MachineDocument[]
+  parts       MachinePart[]
+  pmSchedules PMSchedule[]
+  repairWorks RepairWork[]      // เพิ่ม relationship สำหรับงานซ่อม
+
+  @@map("machines")
+}
+
+model MachineDocument {
+  id           String   @id @default(uuid())
+  machineId    String   @map("machine_id") // เชื่อมกับเครื่องจักร
+  fileName     String   @map("file_name") // ชื่อไฟล์เดิม
+  filePath     String   @map("file_path") // path ของไฟล์ในระบบ
+  fileUrl      String   @map("file_url") // URL สำหรับดาวน์โหลด
+  fileSize     Int      @map("file_size") // ขนาดไฟล์ (bytes)
+  fileType     String   @map("file_type") // MIME type
+  documentType DocumentType @map("document_type") // ประเภทเอกสาร: 'manual', 'warranty', 'certificate', 'maintenance', 'other'
+  title        String? // ชื่อเอกสาร
+  description  String? // คำอธิบายเอกสาร
+  version      String? // เวอร์ชันเอกสาร
+  uploadedBy   String   @map("uploaded_by") // ผู้อัพโหลด (User ID)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@map("machine_documents")
+}
+
+model MachinePart {
+  id             String   @id @default(uuid())
+  machineId      String   @map("machine_id") // เชื่อมเครื่องจักร
+  partCode       String   @map("part_code") // รหัสอะไหล่ เช่น PR-BELT-001
+  partName       String   @map("part_name") // ชื่ออะไหล่ เช่น สายพานลำเลียง
+  description    String? // รายละเอียดเพิ่มเติม
+  partCategory   String?  @map("part_category") // ประเภท เช่น: สายพาน, มอเตอร์, แบริ่ง
+  uom            String   @default("pcs") // หน่วยนับ เช่น pcs, set, ltr
+  quantityOnHand Int      @default(0) @map("quantity_on_hand") // คงเหลือในสต็อก
+  minStockLevel  Int?     @map("min_stock_level") // ปริมาณต่ำสุดที่ต้องมี
+  location       String? // ที่เก็บ เช่น ชั้น 2, Zone A
+  vendorName     String?  @map("vendor_name") // ผู้จำหน่ายอะไหล่นี้
+  costPerUnit    Decimal? @map("cost_per_unit") @db.Decimal(10, 2) // ราคาต่อชิ้น
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  machine               Machine                @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  inventoryTransactions InventoryTransaction[]
+  repairWorkParts       RepairWorkPart[]       // เพิ่ม relationship สำหรับงานซ่อม
+
+  @@unique([machineId, partCode]) // Ensure unique part codes per machine
+  // Indexes for better performance
+  @@index([machineId])
+  @@index([partCode])
+  @@map("machine_parts")
+}
+
+model InventoryTransaction {
+  id              String   @id @default(uuid())
+  partId          String          @map("part_id") // อะไหล่ที่เคลื่อนไหว
+  transactionType TransactionType @map("transaction_type") // IN, OUT, ADJUST
+  quantity        Int // จำนวนที่รับเข้า/เบิกออก (+ สำหรับ IN, - สำหรับ OUT)
+  transactionDate DateTime        @default(now()) @map("transaction_date") // วันที่ทำรายการ
+  referenceType   ReferenceType?  @map("reference_type") // work_order, manual, purchase, adjustment
+  referenceId     String?         @map("reference_id") // เชื่อมกับใบงานหรือเอกสารอ้างอิง (optional)
+  performedBy     String   @map("performed_by") // ผู้ดำเนินการ
+  remarks         String? // หมายเหตุ เช่น "เบิกสำหรับ WO-0004"
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  part MachinePart @relation(fields: [partId], references: [id], onDelete: Cascade)
+  user User        @relation(fields: [performedBy], references: [id])
+
+  // Indexes for better performance
+  @@index([partId])
+  @@index([transactionType])
+  @@index([transactionDate])
+  @@index([performedBy])
+  @@map("inventory_transactions")
+}
+
+// Enums for better type safety and data consistency
+enum MachineStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+  RETIRED
+}
+
+enum DocumentType {
+  MANUAL
+  WARRANTY
+  CERTIFICATE
+  MAINTENANCE
+  OTHER
+}
+
+enum TransactionType {
+  IN
+  OUT
+  ADJUST
+}
+
+enum ReferenceType {
+  WORK_ORDER
+  MANUAL
+  PURCHASE
+  ADJUSTMENT
+}
+
+enum FrequencyType {
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum PMScheduleStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+  OVERDUE
+  CANCELLED
+}
+
+enum PMPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum PMResultStatus {
+  NORMAL
+  ABNORMAL
+  NEEDS_REPAIR
+  NOT_CHECKABLE
+}
+
+enum PhotoType {
+  BEFORE
+  AFTER
+  EVIDENCE
+  REFERENCE
+}
+
+// Keep the enum for backwards compatibility or reference
+enum RoleType {
+  ADMIN
+  TECHNICIAN
+  CUSTOMER
+}
+
+// PM Template Models
+model PMTemplate {
+  id              String   @id @default(uuid())
+  name            String // ชื่อแม่แบบ: เช่น "PM ปั๊มลมรายเดือน"
+  description     String? // คำอธิบาย
+  machineType     String?       @map("machine_type") // ประเภทเครื่องที่ใช้กับ template นี้
+  frequencyType   FrequencyType @map("frequency_type") // daily, weekly, monthly, hourly
+  frequencyValue  Int           @map("frequency_value") // ทุกกี่วัน / สัปดาห์ / ชั่วโมง
+  durationMinutes Int?     @map("duration_minutes") // เวลาทำงานโดยประมาณ
+  isActive        Boolean  @default(true) @map("is_active") // สถานะเปิดใช้งาน
+  createdBy       String   @map("created_by") // ผู้สร้าง
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+
+  creator   User             @relation(fields: [createdBy], references: [id])
+  items     PMTemplateItem[]
+  schedules PMSchedule[]
+
+  @@map("pm_templates")
+}
+
+model PMTemplateItem {
+  id            String  @id @default(uuid())
+  pmTemplateId  String  @map("pm_template_id")
+  stepOrder     Int     @map("step_order") // ลำดับขั้นตอน
+  checkItem     String  @map("check_item") // รายการ เช่น "ตรวจสอบเสียงผิดปกติ"
+  category      String? // หมวดหมู่ เช่น "ตรวจสอบด้วยสายตา", "วัดค่า"
+  standardValue String? @map("standard_value") // ค่าอ้างอิง เช่น "ไม่เกิน 80 dB"
+  unit          String? // หน่วย เช่น "dB", "°C", "bar"
+  method        String? // วิธีตรวจ เช่น "สายตา", "เครื่องวัด"
+  toolsRequired String? @map("tools_required") // เครื่องมือที่ใช้
+  imageUrl      String? @map("image_url") // รูปภาพประกอบ
+  isRequired    Boolean @default(true) @map("is_required") // บังคับตรวจสอบหรือไม่
+  hasPhoto      Boolean @default(false) @map("has_photo") // ต้องถ่ายรูปหรือไม่
+  remarks       String?
+
+  // Relationships
+  pmTemplate PMTemplate @relation(fields: [pmTemplateId], references: [id], onDelete: Cascade)
+  results    PMResult[]
+
+  @@map("pm_template_items")
+}
+
+model PMSchedule {
+  id             String    @id @default(uuid())
+  machineId      String    @map("machine_id")
+  pmTemplateId   String?   @map("pm_template_id")
+  scheduleCode   String    @unique @map("schedule_code") // รหัสแผน เช่น PM-2024-001
+  nextDueDate    DateTime         @map("next_due_date")
+  lastDoneDate   DateTime?        @map("last_done_date")
+  status         PMScheduleStatus @default(SCHEDULED) // scheduled, in_progress, completed, skipped, overdue
+  priority       PMPriority       @default(MEDIUM) // low, medium, high, critical
+  estimatedHours Float?           @map("estimated_hours") // ชั่วโมงประมาณ
+  startedAt      DateTime?        @map("started_at")     // เวลาที่เริ่มทำจริง
+  completedAt    DateTime? @map("completed_at")
+  completedBy    String?   @map("completed_by")
+  approvedBy     String?   @map("approved_by")
+  approvedAt     DateTime? @map("approved_at")
+  remarks        String?
+  // Customer signature fields (optional)
+  customerSignatureUrl  String?  @map("customer_signature_url")
+  customerSignerName    String?  @map("customer_signer_name")
+  customerSignedAt      DateTime? @map("customer_signed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  machine         Machine                @relation(fields: [machineId], references: [id])
+  pmTemplate      PMTemplate?            @relation(fields: [pmTemplateId], references: [id])
+  assignedUsers   PMScheduleAssignment[] // Many-to-many relationship for multiple technicians
+  completedByUser User?                  @relation("CompletedBy", fields: [completedBy], references: [id])
+  approvedByUser  User?                  @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  results         PMResult[]
+  repairWorks     RepairWork[]           // เพิ่ม relationship สำหรับงานซ่อมที่เกิดจาก PM
+
+  @@map("pm_schedules")
+}
+
+model PMResult {
+  id               String    @id @default(uuid())
+  pmScheduleId     String    @map("pm_schedule_id")
+  pmTemplateItemId String    @map("pm_template_item_id")
+  result           String? // ผล เช่น "ปกติ", "ผิดปกติ", "ต้องซ่อม"
+  measuredValue    String?   @map("measured_value") // ค่าเช่น 78 dB
+  checkedBy        String?   @map("checked_by")
+  checkedAt        DateTime? @map("checked_at")
+  approvedBy       String?   @map("approved_by")
+  approvedAt       DateTime? @map("approved_at")
+  remarks          String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  pmSchedule     PMSchedule      @relation(fields: [pmScheduleId], references: [id], onDelete: Cascade)
+  pmTemplateItem PMTemplateItem  @relation(fields: [pmTemplateItemId], references: [id])
+  checkedByUser  User?           @relation("CheckedBy", fields: [checkedBy], references: [id])
+  approvedByUser User?           @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  photos         PMResultPhoto[] // Opposite relation for PMResultPhoto
+
+  @@map("pm_results")
+}
+
+model PMResultPhoto {
+  id          String   @id @default(uuid())
+  pmResultId  String    @map("pm_result_id")
+  photoUrl    String    @map("photo_url")
+  fileName    String    @map("file_name") // ชื่อไฟล์รูปภาพ
+  photoType   PhotoType @map("photo_type") // เช่น "before", "after", "evidence"
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  pmResult PMResult @relation(fields: [pmResultId], references: [id], onDelete: Cascade)
+
+  @@map("pm_result_photos")
+}
+
+// Junction table for PM Schedule assignments (many-to-many relationship)
+model PMScheduleAssignment {
+  id           String   @id @default(uuid())
+  pmScheduleId String   @map("pm_schedule_id")
+  userId       String   @map("user_id")
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+  assignedBy   String?  @map("assigned_by") // ผู้มอบหมาย
+
+  // Relationships
+  pmSchedule     PMSchedule @relation(fields: [pmScheduleId], references: [id], onDelete: Cascade)
+  user           User       @relation("PMScheduleAssignments", fields: [userId], references: [id])
+  assignedByUser User?      @relation("AssignedByUser", fields: [assignedBy], references: [id])
+
+  // Ensure unique assignment per schedule-user pair
+  @@unique([pmScheduleId, userId])
+  @@map("pm_schedule_assignments")
+}
+
+// Repair Work Models
+model RepairWork {
+  id               String            @id @default(uuid())
+  workOrderNumber  String            @unique @map("work_order_number") // หมายเลขงานซ่อม เช่น RW-2024-001
+  title            String            // หัวข้องานซ่อม
+  description      String?           // รายละเอียดงานซ่อม
+  machineId        String            @map("machine_id")
+  pmScheduleId     String?           @map("pm_schedule_id") // เชื่อมกับ PM ที่พบปัญหา (ถ้ามี)
+  priority         RepairPriority    @default(MEDIUM)
+  status           RepairStatus      @default(OPEN)
+  reportedBy       String            @map("reported_by") // ผู้รายงาน
+  assignedTo       String?           @map("assigned_to") // ช่างที่รับงาน
+  estimatedHours   Float?            @map("estimated_hours") // ชั่วโมงประมาณ
+  actualHours      Float?            @map("actual_hours") // ชั่วโมงจริง
+  estimatedCost    Decimal?          @map("estimated_cost") @db.Decimal(10, 2) // ค่าใช้จ่ายประมาณ
+  actualCost       Decimal?          @map("actual_cost") @db.Decimal(10, 2) // ค่าใช้จ่ายจริง
+  startedAt        DateTime?         @map("started_at")
+  completedAt      DateTime?         @map("completed_at")
+  completedBy      String?           @map("completed_by")
+  approvedBy       String?           @map("approved_by")
+  approvedAt       DateTime?         @map("approved_at")
+  remarks          String?
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  // Relationships
+  machine          Machine           @relation(fields: [machineId], references: [id])
+  pmSchedule       PMSchedule?       @relation(fields: [pmScheduleId], references: [id])
+  reportedByUser   User              @relation("ReportedBy", fields: [reportedBy], references: [id])
+  assignedToUser   User?             @relation("AssignedTo", fields: [assignedTo], references: [id])
+  approvedByUser   User?             @relation("ApprovedByRepair", fields: [approvedBy], references: [id])
+  completedByUser  User?             @relation("RepairCompletedBy", fields: [completedBy], references: [id])
+  items            RepairWorkItem[]
+  photos           RepairWorkPhoto[]
+  partsUsed        RepairWorkPart[]
+  assignments      RepairWorkAssignment[] // many-to-many technicians
+
+  // Customer signature fields (optional)
+  customerSignatureUrl  String?  @map("customer_signature_url")
+  customerSignerName    String?  @map("customer_signer_name")
+  customerSignedAt      DateTime? @map("customer_signed_at")
+
+  @@map("repair_works")
+}
+
+model RepairWorkItem {
+  id           String          @id @default(uuid())
+  repairWorkId String          @map("repair_work_id")
+  itemOrder    Int             @map("item_order") // ลำดับรายการ
+  description  String          // รายละเอียดงาน เช่น "เปลี่ยนสายพาน"
+  status       RepairItemStatus @default(PENDING)
+  assignedTo   String?         @map("assigned_to")
+  completedBy  String?         @map("completed_by")
+  completedAt  DateTime?       @map("completed_at")
+  remarks      String?
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  // Relationships
+  repairWork      RepairWork @relation(fields: [repairWorkId], references: [id], onDelete: Cascade)
+  assignedToUser  User?      @relation("RepairItemAssignedTo", fields: [assignedTo], references: [id])
+  completedByUser User?      @relation("RepairItemCompletedBy", fields: [completedBy], references: [id])
+  photos          RepairWorkPhoto[]
+
+  @@map("repair_work_items")
+}
+
+model RepairWorkPhoto {
+  id           String        @id @default(uuid())
+  repairWorkId String        @map("repair_work_id")
+  repairWorkItemId String?   @map("repair_work_item_id") // เชื่อมกับรายการซ่อม (optional)
+  photoUrl     String        @map("photo_url")
+  fileName     String        @map("file_name")
+  photoType    RepairPhotoType @map("photo_type") // BEFORE, AFTER, PROGRESS, DAMAGE
+  description  String?
+  takenBy      String        @map("taken_by")
+  takenAt      DateTime      @default(now()) @map("taken_at")
+
+  // Relationships
+  repairWork   RepairWork @relation(fields: [repairWorkId], references: [id], onDelete: Cascade)
+  repairWorkItem RepairWorkItem? @relation(fields: [repairWorkItemId], references: [id], onDelete: SetNull)
+  takenByUser  User       @relation("RepairPhotoTakenBy", fields: [takenBy], references: [id])
+
+  @@map("repair_work_photos")
+}
+
+model RepairWorkPart {
+  id           String   @id @default(uuid())
+  repairWorkId String   @map("repair_work_id")
+  machinePartId String  @map("machine_part_id")
+  quantityUsed Int      @map("quantity_used")
+  costPerUnit  Decimal? @map("cost_per_unit") @db.Decimal(10, 2)
+  totalCost    Decimal? @map("total_cost") @db.Decimal(10, 2)
+  usedBy       String   @map("used_by")
+  usedAt       DateTime @default(now()) @map("used_at")
+
+  // Relationships
+  repairWork   RepairWork  @relation(fields: [repairWorkId], references: [id], onDelete: Cascade)
+  machinePart  MachinePart @relation(fields: [machinePartId], references: [id])
+  usedByUser   User        @relation("RepairPartUsedBy", fields: [usedBy], references: [id])
+
+  @@map("repair_work_parts")
+}
+
+// Junction table for multi-technician assignment on repair works
+model RepairWorkAssignment {
+  id           String   @id @default(uuid())
+  repairWorkId String   @map("repair_work_id")
+  userId       String   @map("user_id")
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+  assignedBy   String?  @map("assigned_by")
+
+  repairWork RepairWork @relation(fields: [repairWorkId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+  assignedByUser User?  @relation("RepairWorkAssignedBy", fields: [assignedBy], references: [id])
+
+  @@unique([repairWorkId, userId])
+  @@map("repair_work_assignments")
+}
+
+// Enums for Repair Work
+enum RepairStatus {
+  OPEN          // เปิดงาน
+  IN_PROGRESS   // กำลังดำเนินการ
+  COMPLETED     // เสร็จสิ้น
+  CANCELLED     // ยกเลิก
+  ON_HOLD       // พักงาน
+}
+
+enum RepairPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+  EMERGENCY
+}
+
+enum RepairItemStatus {
+  PENDING       // รอดำเนินการ
+  IN_PROGRESS   // กำลังทำ
+  COMPLETED     // เสร็จ
+  SKIPPED       // ข้าม
+}
+
+enum RepairPhotoType {
+  BEFORE        // ก่อนซ่อม
+  AFTER         // หลังซ่อม
+  PROGRESS      // ระหว่างซ่อม
+  DAMAGE        // ความเสียหาย
+  PARTS         // อะไหล่
+}
