@@ -17,10 +17,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: 22
           script: |
-           
             cd /var/www/pm-backend
-            
             git pull origin main
-            
             npm install --production
-            pm2 restart my-api
+            pm2 restart pm-backend
