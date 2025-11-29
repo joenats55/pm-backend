@@ -16,6 +16,7 @@ const pmTemplateRoutes = require("./routes/pmTemplate.route");
 const pmScheduleRoutes = require("./routes/pmSchedule.route");
 const repairWorkRoutes = require("./routes/repairWork.routes");
 const uploadRoutes = require("./routes/upload.route");
+const notificationRoutes = require("./routes/notification.route");
 
 // Import middlewares
 const { notFound } = require("./middlewares/notFound");
@@ -127,6 +128,7 @@ app.use("/api/pm-templates", pmTemplateRoutes);
 app.use("/api/pm-schedules", pmScheduleRoutes);
 app.use("/api/repair-works", repairWorkRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // 404 handler
 app.use(notFound);
