@@ -71,7 +71,16 @@ class NotificationService {
             keys: sub.keys,
           };
 
-          await webpush.sendNotification(pushSubscription, notificationPayload);
+          const options = {
+            TTL: 60,
+            agent: new require("https").Agent({ family: 4 }), // Force IPv4
+          };
+
+          await webpush.sendNotification(
+            pushSubscription,
+            notificationPayload,
+            options
+          );
           results.push({ id: sub.id, status: "sent" });
         } catch (error) {
           // If subscription is invalid (e.g. expired), delete it
