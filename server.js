@@ -19,6 +19,12 @@ async function startServer() {
     }
     console.log(`☁️ ㅤDatabase connected successfully (DB: ${dbName})`);
 
+    // Start Cron Jobs
+    const {
+      startDailyNotificationJob,
+    } = require("./src/jobs/dailyNotification.job");
+    startDailyNotificationJob();
+
     app.listen(PORT, () => {
       console.log(`🚀  Server is running on port ${PORT}`);
       console.log(`🐥  Environment: ${process.env.NODE_ENV || "development"}`);
