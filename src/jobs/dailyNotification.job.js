@@ -74,8 +74,8 @@ const startDailyNotificationJob = () => {
           );
 
           await notificationService.sendNotification(tech.id, {
-            title: "Daily Work Summary",
-            body: `Good morning! You have ${totalTasks} tasks pending today (${repairCount} Repairs, ${pmCount} PMs).`,
+            title: "สรุปงานประจำวัน",
+            body: `สวัสดีเช้านี้! คุณมีงานต้องทำ ${totalTasks} งานที่ค้างอยู่วันนี้ (${repairCount} Repairs, ${pmCount} PMs).`,
             url: "/tasks",
           });
         }
