@@ -5,9 +5,8 @@ const notificationService = require("../services/notification.service");
 const prisma = new PrismaClient();
 
 const startDailyNotificationJob = () => {
-  // Run every minute for testing (* * * * *)
   // Normal daily schedule: 0 8 * * *
-  const scheduleExpression = "* * * * *";
+  const scheduleExpression = "*/5 * * * *";
 
   console.log(
     `Debug: Scheduling daily notification job with expression: "${scheduleExpression}"`
