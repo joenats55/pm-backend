@@ -5,8 +5,15 @@ const notificationService = require("../services/notification.service");
 const prisma = new PrismaClient();
 
 const startDailyNotificationJob = () => {
-  // Run every day at 8:00 AM
-  cron.schedule("*/5 * *", async () => {
+  // Run every minute for testing (* * * * *)
+  // Normal daily schedule: 0 8 * * *
+  const scheduleExpression = "* * * * *";
+
+  console.log(
+    `Debug: Scheduling daily notification job with expression: "${scheduleExpression}"`
+  );
+
+  cron.schedule(scheduleExpression, async () => {
     console.log("Running daily notification job...");
     try {
       // 1. Get all technicians
@@ -68,8 +75,8 @@ const startDailyNotificationJob = () => {
           );
 
           await notificationService.sendNotification(tech.id, {
-            title: "สรุปงานประจำวัน",
-            body: `สวัสดีเช้านี้! คุณมีงานที่ต้องทำ ${totalTasks} งานค้างอยู่ในวันนี้ (${repairCount} Repairs, ${pmCount} PMs).`,
+            title: "Daily Work Summary",
+            body: `Good morning! You have ${totalTasks} tasks pending today (${repairCount} Repairs, ${pmCount} PMs).`,
             url: "/tasks",
           });
         }
