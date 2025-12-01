@@ -1,14 +1,22 @@
 require("dotenv").config();
 const { PrismaClient } = require("@prisma/client");
 const app = require("./src/app");
+require("dotenv").config();
+const { PrismaClient } = require("@prisma/client");
+const app = require("./src/app");
 
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5001;
 
 async function startServer() {
   try {
+    console.log("Debug: Connecting to database...");
     await prisma.$connect();
+    console.log("Debug: Database connected.");
+
     const dbUrl = process.env.DATABASE_URL;
+    console.log("Debug: DATABASE_URL exists?", !!dbUrl);
+
     let dbName = "unknown";
 
     try {
@@ -20,10 +28,12 @@ async function startServer() {
     console.log(`☁️ ㅤDatabase connected successfully (DB: ${dbName})`);
 
     // Start Cron Jobs
+    console.log("Debug: Starting cron jobs...");
     const {
       startDailyNotificationJob,
     } = require("./src/jobs/dailyNotification.job");
     startDailyNotificationJob();
+    console.log("Debug: Cron jobs started.");
 
     app.listen(PORT, () => {
       console.log(`🚀  Server is running on port ${PORT}`);
@@ -31,6 +41,7 @@ async function startServer() {
     });
   } catch (error) {
     console.error("Database connection failed:", error.message);
+    console.error(error.stack); // Print stack trace
     process.exit(1);
   }
 }
