@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 const startDailyNotificationJob = () => {
   // Run every day at 8:00 AM
-  cron.schedule("* * * * *", async () => {
+  cron.schedule("* 8 * *", async () => {
     console.log("Running daily notification job...");
     try {
       // 1. Get all technicians
