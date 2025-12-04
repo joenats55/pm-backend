@@ -1,13 +1,21 @@
-const express = require('express');
-const { authenticateToken } = require('../middlewares/auth');
-const { uploadPMPhotos, handleUploadError, getPMPhotoUrl } = require('../middlewares/upload');
+const express = require("express");
+const { authenticateToken } = require("../middlewares/auth");
+const {
+  uploadPMPhotos,
+  handleUploadError,
+  getPMPhotoUrl,
+} = require("../middlewares/upload");
 // Reuse multer config for signature (single image) - lightweight approach
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
 // Directory for signatures
-const signatureDir = path.join(__dirname, '../../uploads', 'signatures');
+// Directory for signatures
+const uploadsDir = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.join(__dirname, "../../uploads");
+const signatureDir = path.join(uploadsDir, "signatures");
 if (!fs.existsSync(signatureDir)) {
   fs.mkdirSync(signatureDir, { recursive: true });
 }
@@ -19,19 +27,19 @@ const signatureStorage = multer.diskStorage({
   filename: (req, file, cb) => {
     const unique = `sig-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
     cb(null, `${unique}.png`);
-  }
+  },
 });
 
 const uploadSignature = multer({
   storage: signatureStorage,
   limits: { fileSize: 1024 * 1024 * 2 }, // 2MB
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('Only image files allowed'));
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only image files allowed"));
     }
     cb(null, true);
-  }
-}).single('signature');
+  },
+}).single("signature");
 
 const getSignatureUrl = (filename) => `/uploads/signatures/${filename}`;
 
@@ -73,43 +81,44 @@ const router = express.Router();
  *       200:
  *         description: Photos uploaded successfully
  */
-router.post('/pm-photos', 
-  authenticateToken, 
+router.post(
+  "/pm-photos",
+  authenticateToken,
   uploadPMPhotos,
   handleUploadError,
   async (req, res) => {
     try {
-      const { photoType = 'evidence', description } = req.body;
-      
+      const { photoType = "evidence", description } = req.body;
+
       if (!req.files || req.files.length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'No images uploaded'
+          message: "No images uploaded",
         });
       }
 
       // Process uploaded files
-      const uploadedPhotos = req.files.map(file => ({
+      const uploadedPhotos = req.files.map((file) => ({
         url: getPMPhotoUrl(file.filename),
         fileName: file.originalname,
         fileSize: file.size,
         type: photoType,
-        description: description || null
+        description: description || null,
       }));
 
       res.status(200).json({
         success: true,
         data: {
           photos: uploadedPhotos,
-          count: uploadedPhotos.length
+          count: uploadedPhotos.length,
         },
-        message: 'Photos uploaded successfully'
+        message: "Photos uploaded successfully",
       });
     } catch (error) {
-      console.error('Error in photo upload route:', error);
+      console.error("Error in photo upload route:", error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -142,22 +151,23 @@ router.post('/pm-photos',
  *       200:
  *         description: Photo uploaded successfully
  */
-router.post('/pm-photos/single', 
-  authenticateToken, 
+router.post(
+  "/pm-photos/single",
+  authenticateToken,
   (req, res, next) => {
     // Use single file upload for this endpoint
-    const { uploadSinglePMPhoto } = require('../middlewares/upload');
+    const { uploadSinglePMPhoto } = require("../middlewares/upload");
     uploadSinglePMPhoto(req, res, next);
   },
   handleUploadError,
   async (req, res) => {
     try {
-      const { photoType = 'evidence', description } = req.body;
-      
+      const { photoType = "evidence", description } = req.body;
+
       if (!req.file) {
         return res.status(400).json({
           success: false,
-          message: 'No image uploaded'
+          message: "No image uploaded",
         });
       }
 
@@ -166,19 +176,19 @@ router.post('/pm-photos/single',
         fileName: req.file.originalname,
         fileSize: req.file.size,
         type: photoType,
-        description: description || null
+        description: description || null,
       };
 
       res.status(200).json({
         success: true,
         data: uploadedPhoto,
-        message: 'Photo uploaded successfully'
+        message: "Photo uploaded successfully",
       });
     } catch (error) {
-      console.error('Error in single photo upload route:', error);
+      console.error("Error in single photo upload route:", error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -206,22 +216,24 @@ router.post('/pm-photos/single',
  *       200:
  *         description: Signature uploaded successfully
  */
-router.post('/signature', authenticateToken, (req, res) => {
+router.post("/signature", authenticateToken, (req, res) => {
   uploadSignature(req, res, (err) => {
     if (err) {
       return res.status(400).json({ success: false, message: err.message });
     }
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No signature uploaded' });
+      return res
+        .status(400)
+        .json({ success: false, message: "No signature uploaded" });
     }
     return res.status(200).json({
       success: true,
       data: {
         url: getSignatureUrl(req.file.filename),
         fileName: req.file.originalname,
-        fileSize: req.file.size
+        fileSize: req.file.size,
       },
-      message: 'Signature uploaded'
+      message: "Signature uploaded",
     });
   });
 });
@@ -246,67 +258,70 @@ router.post('/signature', authenticateToken, (req, res) => {
  *       200:
  *         description: Photo deleted successfully
  */
-router.delete('/pm-photos/:filename', 
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const { filename } = req.params;
-      
-      if (!filename) {
-        return res.status(400).json({
-          success: false,
-          message: 'Filename is required'
-        });
-      }
+router.delete("/pm-photos/:filename", authenticateToken, async (req, res) => {
+  try {
+    const { filename } = req.params;
 
-      // Validate filename to prevent directory traversal and ensure it's a PM photo
-      if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid filename'
-        });
-      }
-
-      // Only allow deletion of PM photo files
-      if (!filename.startsWith('pm-')) {
-        return res.status(400).json({
-          success: false,
-          message: 'Can only delete PM photo files'
-        });
-      }
-
-      const fs = require('fs');
-      const path = require('path');
-      const { pmPhotosDir } = require('../middlewares/upload');
-      
-      const filePath = path.join(pmPhotosDir, filename);
-      
-      // Check if file exists
-      if (!fs.existsSync(filePath)) {
-        return res.status(404).json({
-          success: false,
-          message: 'File not found'
-        });
-      }
-      
-      // Delete the file
-      fs.unlinkSync(filePath);
-      
-      console.log(`PM photo deleted: ${filename} by user ${req.user?.username || 'unknown'}`);
-      
-      res.status(200).json({
-        success: true,
-        message: 'File deleted successfully',
-        data: { filename }
-      });
-    } catch (error) {
-      console.error('Error in photo deletion route:', error);
-      res.status(500).json({
+    if (!filename) {
+      return res.status(400).json({
         success: false,
-        message: error.message
+        message: "Filename is required",
       });
     }
+
+    // Validate filename to prevent directory traversal and ensure it's a PM photo
+    if (
+      filename.includes("..") ||
+      filename.includes("/") ||
+      filename.includes("\\")
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid filename",
+      });
+    }
+
+    // Only allow deletion of PM photo files
+    if (!filename.startsWith("pm-")) {
+      return res.status(400).json({
+        success: false,
+        message: "Can only delete PM photo files",
+      });
+    }
+
+    const fs = require("fs");
+    const path = require("path");
+    const { pmPhotosDir } = require("../middlewares/upload");
+
+    const filePath = path.join(pmPhotosDir, filename);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: "File not found",
+      });
+    }
+
+    // Delete the file
+    fs.unlinkSync(filePath);
+
+    console.log(
+      `PM photo deleted: ${filename} by user ${req.user?.username || "unknown"}`
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "File deleted successfully",
+      data: { filename },
+    });
+  } catch (error) {
+    console.error("Error in photo deletion route:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
-);
+});
 
 module.exports = router;

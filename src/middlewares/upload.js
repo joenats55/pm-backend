@@ -3,7 +3,11 @@ const path = require("path");
 const fs = require("fs");
 
 // Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, "../../uploads");
+// Create uploads directory if it doesn't exist
+const uploadsDir = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.join(__dirname, "../../uploads");
+
 const machineImagesDir = path.join(uploadsDir, "machines");
 const machineDocumentsDir = path.join(uploadsDir, "documents");
 const pmPhotosDir = path.join(uploadsDir, "pm-photos");

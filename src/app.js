@@ -95,16 +95,21 @@ app.use(express.urlencoded({ extended: true }));
 // ปรับ path ให้ตรงกับโฟลเดอร์เก็บไฟล์จริง
 app.use(
   "/uploads",
-  express.static(path.join(__dirname, "../uploads"), {
-    setHeaders: (res, filePath) => {
-      const origin = res.req.headers.origin;
-      if (origin && allowedOrigins.includes(origin)) {
-        res.setHeader("Access-Control-Allow-Origin", origin);
-      }
-      res.setHeader("Access-Control-Allow-Methods", "GET,HEAD");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    },
-  })
+  express.static(
+    process.env.UPLOAD_DIR
+      ? path.resolve(process.env.UPLOAD_DIR)
+      : path.join(__dirname, "../uploads"),
+    {
+      setHeaders: (res, filePath) => {
+        const origin = res.req.headers.origin;
+        if (origin && allowedOrigins.includes(origin)) {
+          res.setHeader("Access-Control-Allow-Origin", origin);
+        }
+        res.setHeader("Access-Control-Allow-Methods", "GET,HEAD");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      },
+    }
+  )
 );
 
 // Health check endpoint
